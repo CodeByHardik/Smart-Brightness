@@ -1,0 +1,15 @@
+camera_device = 0
+resolution = [
+    640,
+    400,
+]
+warmup_frames = 30
+smoothing_factor = 0.15000000596046448
+real_min_brightness = 47
+real_max_brightness = 937
+capture_interval_ms = 500
+smooth_interval_ms = 50
+smooth_step_divisor = 20
+smooth_max_step = 100
+camera_min_luma = 0.062745101749897
+camera_max_luma = 0.43469172716140747
