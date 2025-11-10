@@ -12,4 +12,4 @@ smooth_interval_ms = 50
 smooth_step_divisor = 20
 smooth_max_step = 100
 camera_min_luma = 0.062745101749897
-camera_max_luma = 0.43469172716140747
+camera_max_luma = 0.4656844437122345

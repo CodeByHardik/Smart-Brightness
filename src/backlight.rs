@@ -1,4 +1,5 @@
 // src/backlight.rs
+use std::cell::Cell;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -17,6 +18,7 @@ fn write_u32_to<P: AsRef<Path>>(p: P, v: u32) -> std::io::Result<()> {
 pub struct Backlight {
     pub path: PathBuf,
     pub max_value: u32,
+    last_value: Cell<Option<u32>>,
 }
 
 impl Backlight {
@@ -28,11 +30,17 @@ impl Backlight {
             .ok_or("cannot find brightness")?;
 
         let max_value = read_u32_from(&max_path).ok_or("cannot read max_brightness")?;
-        Ok(Self { path, max_value })
+        Ok(Self { path, max_value, last_value: Cell::new(None) })
     }
 
     pub fn set(&self, value: u32) -> std::io::Result<()> {
-        write_u32_to(&self.path, value.clamp(0, self.max_value))
+        let v = value.clamp(0, self.max_value);
+        if self.last_value.get() == Some(v) {
+            return Ok(());
+        }
+        let r = write_u32_to(&self.path, v);
+        if r.is_ok() { self.last_value.set(Some(v)); }
+        r
     }
 
     pub fn current(&self) -> Option<u32> {

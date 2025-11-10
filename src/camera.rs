@@ -35,12 +35,11 @@ impl Camera {
 
     pub fn average_luma(&mut self) -> Result<f32, Box<dyn Error>> {
         let (buf, _) = self.stream.next()?;
-        let (mut sum, mut cnt) = (0u64, 0u64);
-        for (i, b) in buf.iter().enumerate() {
-            if i & 1 == 0 {
-                sum += *b as u64;
-                cnt += 1;
-            }
+        let mut sum: u64 = 0;
+        let mut cnt: u64 = 0;
+        for pair in buf.chunks_exact(2) {
+            sum += pair[0] as u64;
+            cnt += 1;
         }
         let avg = if cnt > 0 { (sum as f32) / (cnt as f32) / 255.0 } else { 0.0 };
         Ok(avg.clamp(0.0, 1.0))
@@ -51,10 +50,7 @@ impl Camera {
         let mut acc = 0.0f32;
         let mut n = 0usize;
         for _ in 0..frames {
-            if let Ok(v) = self.average_luma() {
-                acc += v;
-                n += 1;
-            }
+            if let Ok(v) = self.average_luma() { acc += v; n += 1; }
         }
         if n == 0 { Ok(0.0) } else { Ok(acc / n as f32) }
     }

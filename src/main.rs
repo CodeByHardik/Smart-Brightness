@@ -27,6 +27,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let real_min = cfg.real_min_brightness;
     let real_max = cfg.real_max_brightness;
+    let range_u32 = real_max - real_min;
+    let range_f32 = range_u32 as f32;
 
     println!("Lumen Active: Using brightness range {} → {}", real_min, real_max);
 
@@ -63,9 +65,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     if max > min { ((l - min) / (max - min)).clamp(0.0, 1.0) } else { l }
                 } else { l };
                 let smoothed = ema.update(l);
-                let range = real_max - real_min;
-                let offset = (smoothed * range as f32).round() as u32;
-                let final_target = (real_min + offset).clamp(real_min, real_max);
+                let mapped = smoothed.mul_add(range_f32, real_min as f32).round() as u32;
+                let final_target = mapped.clamp(real_min, real_max);
                 transition.set_target(final_target, hardware_max);
             }
             last_capture = Instant::now();
