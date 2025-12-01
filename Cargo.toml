@@ -1,0 +1,23 @@
+[package]
+name = "smart_brightness"
+version = "0.2.0"
+edition = "2021"
+description = "Android-grade auto-brightness for Linux"
+license = "MIT"
+
+[dependencies]
+v4l = "0.14"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+ctrlc = "3"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+dirs = "5"
+flate2 = "1"
+tar = "0.4"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

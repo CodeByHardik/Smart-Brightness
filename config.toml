@@ -1,0 +1,28 @@
+camera_index = 0
+camera_resolution = [
+    640,
+    400,
+]
+camera_warmup_frames = 30
+ambient_smoothing_strength = 0.15000000596046448
+screen_brightness_min = 1
+screen_brightness_max = 937
+capture_interval_ms = 800
+brightness_step_interval_ms = 50
+brightness_step_divisor = 20
+brightness_step_max = 60
+ambient_luma_min = 0.062745101749897
+ambient_luma_max = 0.5673728585243225
+calibrated = true
+logging = "low" # off|minimal|low|medium|high|verbose
+circadian_enabled = true
+circadian_day_boost = 1.05
+circadian_night_dim = 0.95
+circadian_day_start_hour = 7
+circadian_night_start_hour = 20
+status_interval_seconds = 5
+status_min_brightness_change = 8
+error_throttle_seconds = 2
+status_fast_change_threshold = 40
+status_show_target_brightness = true
+status_only_when_changed = true
