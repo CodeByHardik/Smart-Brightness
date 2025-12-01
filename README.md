@@ -15,6 +15,7 @@ Most mobile devices and operating systems, like Android, feature automatic brigh
 - Lightweight and resource-friendly
 - Custom calibration for better accuracy
 - Actively developed; expect frequent changes
+- Circadian for optimising brightness based on the local time of the day
 
 ---
 
