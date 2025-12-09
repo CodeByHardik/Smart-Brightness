@@ -15,8 +15,27 @@ pub enum LogLevel {
     Verbose,
 }
 
+#[derive(Debug, Deserialize, Serialize, Clone, Copy, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum DaemonMode {
+    Boot,
+    Interval,
+    #[default]
+    Realtime,
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
+    // Daemon configuration
+    #[serde(default)]
+    pub mode: DaemonMode,
+    #[serde(default = "default_run_duration")]
+    pub run_duration: f64,
+    #[serde(default = "default_pause_interval")]
+    pub pause_interval: f64,
+    #[serde(default)]
+    pub interval_boot: bool,
+
     #[serde(rename = "camera_index", alias = "camera_device")]
     pub camera_device: usize,
     #[serde(rename = "camera_resolution", alias = "resolution")]
@@ -117,7 +136,7 @@ pub struct Config {
         rename = "status_fast_interval_seconds",
         alias = "status_fast_interval_secs"
     )]
-    pub status_fast_interval_secs: u64,
+    pub status_fast_interval_secs: f64,
     #[serde(
         default = "default_status_fast_threshold",
         rename = "status_fast_change_threshold",
@@ -148,21 +167,27 @@ pub struct Config {
         alias = "status_log_only_on_change"
     )]
     pub status_log_only_on_change: bool,
+    #[serde(default)]
+    pub half_precision: bool,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
+            mode: DaemonMode::Realtime,
+            run_duration: default_run_duration(),
+            pause_interval: default_pause_interval(),
+            interval_boot: false,
             camera_device: 0,
             resolution: [640, 400],
             warmup_frames: 30,
             smoothing_factor: 0.15,
             real_min_brightness: 47,
             real_max_brightness: 937,
-            capture_interval_ms: 500,
-            smooth_interval_ms: 50,
-            smooth_step_divisor: 20,
-            smooth_max_step: 60,
+            capture_interval_ms: 150, // More responsive
+            smooth_interval_ms: 20,   // Faster updates
+            smooth_step_divisor: 10,  // Faster transition
+            smooth_max_step: 100,     // Allow larger jumps
             camera_min_luma: Some(0.05),
             camera_max_luma: Some(0.8),
             calibrated: true,
@@ -181,8 +206,17 @@ impl Default for Config {
             min_luma_delta: default_min_luma_delta(),
             log_target_brightness: default_log_target_brightness(),
             status_log_only_on_change: default_status_log_only_on_change(),
+            half_precision: false,
         }
     }
+}
+
+fn default_run_duration() -> f64 {
+    300.0 // 5 minutes
+}
+
+fn default_pause_interval() -> f64 {
+    60.0 // 1 minute
 }
 
 fn default_enable_circadian() -> bool {
@@ -213,8 +247,8 @@ fn default_status_threshold() -> u32 {
     8
 }
 
-fn default_status_fast_interval_secs() -> u64 {
-    1
+fn default_status_fast_interval_secs() -> f64 {
+    0.25
 }
 
 fn default_status_fast_threshold() -> u32 {
@@ -274,7 +308,7 @@ impl Config {
         if self.status_interval_secs == 0 {
             return Err("status_interval_seconds must be greater than 0".into());
         }
-        if self.status_fast_interval_secs == 0 {
+        if self.status_fast_interval_secs <= 0.0 {
             return Err("status_fast_interval_seconds must be greater than 0".into());
         }
         if self.status_threshold == 0 {
@@ -286,21 +320,51 @@ impl Config {
         if self.error_throttle_secs == 0 {
             return Err("error_throttle_seconds must be greater than 0".into());
         }
+        if self.run_duration <= 0.0 {
+            return Err("run_duration must be greater than 0".into());
+        }
+        if self.pause_interval < 0.0 {
+            return Err("pause_interval must be non-negative".into());
+        }
         Ok(())
     }
 }
 
 pub fn read_config() -> Config {
-    let path = Path::new("config.toml");
-    if !path.exists() {
-        println!("No config.toml found, using built-in defaults.");
-        return Config::default();
+    // 1. Check ~/.config/smart-brightness/config.toml
+    if let Some(mut path) = dirs::config_dir() {
+        path.push("smart-brightness");
+        path.push("config.toml");
+        if path.exists() {
+            return load_from_path(&path);
+        }
     }
+
+    // 2. Check /etc/smart-brightness/config.toml (System-wide fallback)
+    let sys_path = Path::new("/etc/smart-brightness/config.toml");
+    if sys_path.exists() {
+        return load_from_path(sys_path);
+    }
+
+    // 3. Check current directory (fallback)
+    let cwd_path = Path::new("config.toml");
+    if cwd_path.exists() {
+        println!("Found config.toml in current directory, using it.");
+        return load_from_path(cwd_path);
+    }
+
+    // Default
+    println!("No config found in standard locations. Using defaults.");
+    Config::default()
+}
+
+fn load_from_path(path: &Path) -> Config {
     let data = match fs::read_to_string(path) {
         Ok(data) => data,
         Err(e) => {
             eprintln!(
-                "Failed to read config.toml ({}). Falling back to defaults.",
+                "Failed to read config file ({}): {}. Falling back to defaults.",
+                path.display(),
                 e
             );
             return Config::default();
@@ -310,7 +374,8 @@ pub fn read_config() -> Config {
         Ok(cfg) => cfg,
         Err(e) => {
             eprintln!(
-                "Failed to parse config.toml ({}). Falling back to defaults.",
+                "Failed to parse config file ({}): {}. Falling back to defaults.",
+                path.display(),
                 e
             );
             Config::default()

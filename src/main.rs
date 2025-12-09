@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 
 use backlight::Backlight;
 use camera::Camera;
-use config::{read_config, LogLevel};
+use config::{read_config, Config, DaemonMode, LogLevel};
 use logging::Logger;
 use smooth_transition::SmoothTransition;
 use smoothing::Ema;
@@ -47,7 +47,82 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         logger.error(msg.clone());
         return Err(io::Error::new(io::ErrorKind::InvalidData, msg).into());
     }
-    let bl = Backlight::resolve(&cfg)?;
+
+    // Handle interval_boot override
+    // If enabled, we treat the current run as 'Interval' regardless of config.mode (unless overridden)
+    // Actually, usually this means "on boot, if we are in boot mode, forces interval".
+    // User request: "If interval_boot = true, force interval mode on boot."
+    // This implies that if the process is started at boot (how do we know? Systemd doesn't tell us easily unless we check uptime or args),
+    // we should use interval mode.
+    // However, usually "on boot" just means "when the daemon starts".
+    // So if `interval_boot` is true, we override `cfg.mode` to `DaemonMode::Interval`.
+    if cfg.interval_boot {
+        logger.info(|| "interval_boot is true: Forcing Interval mode.".into());
+        cfg.mode = DaemonMode::Interval;
+    }
+
+    logger.info(|| format!("Starting Smart Brightness in {:?} mode", cfg.mode));
+
+    // Ctrl-C handling
+    let running = Arc::new(AtomicBool::new(true));
+    {
+        let r = running.clone();
+        ctrlc::set_handler(move || r.store(false, Ordering::SeqCst))?;
+    }
+
+    match cfg.mode {
+        DaemonMode::Realtime => {
+            run_brightness_loop(&cfg, &logger, running, None)?;
+        }
+        DaemonMode::Boot => {
+            let duration = Duration::from_secs_f64(cfg.run_duration);
+            logger.info(|| format!("Running for {:.1} seconds...", cfg.run_duration));
+            run_brightness_loop(&cfg, &logger, running, Some(duration))?;
+        }
+        DaemonMode::Interval => {
+            let run_duration = Duration::from_secs_f64(cfg.run_duration);
+            let pause_interval = Duration::from_secs_f64(cfg.pause_interval);
+
+            while running.load(Ordering::SeqCst) {
+                logger.info(|| "Interval: Active phase started".into());
+                // We need a fresh 'running' signal for the inner loop if we want to support clean shutdown,
+                // but the inner loop checks 'running' anyway.
+                // However, the inner loop returns when duration expires.
+                // We should pass the same 'running' flag so Ctrl-C breaks the inner loop immediately.
+                
+                run_brightness_loop(&cfg, &logger, running.clone(), Some(run_duration))?;
+
+                if !running.load(Ordering::SeqCst) {
+                   break;
+                }
+
+                logger.info(|| format!("Interval: Sleeping for {:.1} seconds...", cfg.pause_interval));
+                
+                // Sleep with check for interrupt
+                let sleep_start = Instant::now();
+                while sleep_start.elapsed() < pause_interval {
+                     if !running.load(Ordering::SeqCst) {
+                         break;
+                     }
+                     thread::sleep(Duration::from_millis(100));
+                }
+            }
+        }
+    }
+
+    logger.info(|| "Smart Brightness – stopped".into());
+    Ok(())
+}
+
+fn run_brightness_loop(
+    cfg: &Config,
+    logger: &Logger,
+    running: Arc<AtomicBool>,
+    max_duration: Option<Duration>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let start_time = Instant::now();
+    
+    let bl = Backlight::resolve(cfg)?;
     let hardware_max = bl.max_value;
 
     let real_min = cfg.real_min_brightness;
@@ -63,7 +138,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     logger.info(|| {
         format!(
-            "Config: smoothing={:.3}, circadian_enabled={}, min_luma_delta={:.3}, status_interval={}s, fast_interval={}s",
+            "Config: smoothing={:.3}, circadian_enabled={}, min_luma_delta={:.3}, status_interval={}s, fast_interval={:.2}s",
             cfg.smoothing_factor,
             cfg.enable_circadian,
             cfg.min_luma_delta,
@@ -72,31 +147,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
 
-    // Ctrl-C handling
-    let running = Arc::new(AtomicBool::new(true));
-    {
-        let r = running.clone();
-        ctrlc::set_handler(move || r.store(false, Ordering::SeqCst))?;
-    }
-
     let (w, h) = (cfg.resolution[0], cfg.resolution[1]);
     let mut cam = Camera::open(cfg.camera_device, w, h)?;
     cam.warmup(cfg.warmup_frames);
 
     let mut ema = Ema::new(cfg.smoothing_factor);
-    let start = bl
+    let start_val = bl
         .actual()
         .or_else(|| bl.current())
         .unwrap_or(real_min)
         .clamp(real_min, real_max);
     let mut transition = SmoothTransition::new(
-        start,
+        start_val,
         cfg.smooth_interval_ms,
         cfg.smooth_step_divisor,
         cfg.smooth_max_step,
     );
     let mut status = StatusReporter::new(
-        start,
+        start_val,
         logger.clone(),
         cfg.status_interval_secs,
         cfg.status_threshold,
@@ -105,7 +173,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg.log_target_brightness,
         cfg.status_log_only_on_change,
     );
-    let circadian = TimeAdjuster::from_config(&cfg);
+    let circadian = TimeAdjuster::from_config(cfg);
 
     let capture_interval = Duration::from_millis(cfg.capture_interval_ms);
     let mut last_capture = Instant::now() - capture_interval;
@@ -115,21 +183,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         LogLevel::Minimal,
     );
 
-    logger.info(|| "Smart Brightness – running (Ctrl-C to stop)".into());
-
     let mut last_adjusted_luma = 0.0f32;
     let mut has_luma = false;
 
     while running.load(Ordering::SeqCst) {
+        // Check duration
+        if let Some(limit) = max_duration {
+            if start_time.elapsed() >= limit {
+                logger.info(|| "Run duration expired.".into());
+                break;
+            }
+        }
+
         let mut work_done = false;
 
         // 1. Capture new frame at configured rate
         if last_capture.elapsed() >= capture_interval {
-            match cam.average_luma() {
+            match cam.measure_luma(cfg.half_precision) {
                 Ok(raw_luma) => {
-                    let normalized = normalize_luma(&cfg, raw_luma);
+                    let normalized = normalize_luma(cfg, raw_luma);
                     let smoothed = ema.update(normalized);
-                    let adjusted = apply_circadian(&cfg, &circadian, smoothed);
+                    let adjusted = apply_circadian(cfg, &circadian, smoothed);
                     if let Some(target) = update_brightness(
                         adjusted,
                         &mut has_luma,
@@ -177,8 +251,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-
-    logger.info(|| "Smart Brightness – stopped".into());
+    
+    // Safety check: ensure we didn't crash
     Ok(())
 }
 
@@ -202,7 +276,7 @@ impl StatusReporter {
         logger: Logger,
         interval_secs: u64,
         threshold: u32,
-        fast_interval_secs: u64,
+        fast_interval_secs: f64,
         fast_threshold: u32,
         enabled: bool,
         only_on_change: bool,
@@ -216,7 +290,7 @@ impl StatusReporter {
             last_print: Instant::now() - base_interval,
             base_interval,
             base_threshold: threshold.max(1),
-            fast_interval: Duration::from_secs(fast_interval_secs.max(1)),
+            fast_interval: Duration::from_secs_f64(fast_interval_secs),
             fast_threshold: fast_threshold.max(1),
             logger,
             level: LogLevel::Low,

@@ -1,23 +1,36 @@
 [package]
-name = "smart_brightness"
-version = "0.2.0"
-edition = "2021"
-description = "Android-grade auto-brightness for Linux"
+name = "smart-brightness"
+version = "0.3.0"
+edition = "2024"
+authors = ["Hardik Dubey aka CodeByHardik"]
+description = "Automatic screen brightness adjustment based on ambient light"
 license = "MIT"
+repository = "https://github.com/CodeByHardik/Smart-Brightness"
 
 [dependencies]
-v4l = "0.14"
+log = "0.4"
+simplelog = "0.12"
 serde = { version = "1.0", features = ["derive"] }
-toml = "0.8"
-ctrlc = "3"
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-dirs = "5"
-flate2 = "1"
-tar = "0.4"
+serde_json = "1.0"
+toml = "0.7"
+clap = { version = "4.0", features = ["derive"] }
+ctrlc = { version = "3.2", features = ["termination"] }
+nix = "0.26"
+v4l = "0.14"
+
+chrono = "0.4"
+dirs = "5.0"
+thiserror = "1.0"
+anyhow = "1.0"
+flate2 = "1.1.5"
+tar = "0.4.44"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "2.1"
+tempfile = "3.3"
 
 [profile.release]
-opt-level = 3
 lto = true
 codegen-units = 1
-panic = "abort"
-strip = true
+opt-level = 3

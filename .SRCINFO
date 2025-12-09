@@ -1,0 +1,15 @@
+pkgbase = smart-brightness
+	pkgdesc = Automatic screen brightness adjustment based on ambient light
+	pkgver = 0.3.0
+	pkgrel = 1
+	url = https://github.com/CodeByHardik/Smart-Brightness
+	arch = x86_64
+	license = MIT
+	makedepends = cargo
+	depends = glibc
+	depends = gcc-libs
+	provides = smart-brightness
+	conflicts = smart-brightness
+	options = !strip
+
+pkgname = smart-brightness

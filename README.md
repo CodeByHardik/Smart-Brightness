@@ -1,70 +1,105 @@
-# Smart Brightness
+# 🌟 Smart Brightness
 
-Smart Brightness introduces automatic screen brightness adjustment for Linux laptops and desktops using your webcam as a light sensor.
+[![Rust](https://img.shields.io/badge/Made%20with-Rust-dea584.svg?logo=rust)](https://www.rust-lang.org/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/CodeByHardik/Smart-Brightness?style=social)](https://github.com/CodeByHardik/Smart-Brightness/stargazers)
 
-### Why Smart Brightness?
+A lightweight, real-time automatic screen brightness adjustment tool for Linux that uses your webcam as an ambient light sensor. Inspired by mobile device auto-brightness, but built for your Linux desktop/laptop.
 
-Most mobile devices and operating systems, like Android, feature automatic brightness control. However, mainstream Linux distributions lack this capability for desktops and laptops. Smart Brightness fills this gap with a lightweight, real-time utility designed for simplicity and flexibility.
+## ✨ Features
 
----
+- 🌈 Real-time brightness adjustment based on ambient light
+- ⚡ Lightweight and resource-efficient
+- 🎯 Custom calibration for optimal accuracy
+- ⚙️ Configurable via TOML configuration
+- 🌙 Built-in circadian rhythm support (optimizes brightness based on local time of day)
+- 📊 Detailed logging and monitoring
+- 🚀 Actively developed; expect frequent improvements
 
-## Features
+## 🚀 Quick Start
 
-- Real-time brightness adjustment based on ambient light
-- Simple setup and usage
-- Lightweight and resource-friendly
-- Custom calibration for better accuracy
-- Actively developed; expect frequent changes
-- Circadian for optimising brightness based on the local time of the day
+### Prerequisites
 
----
+- Rust (latest stable)
+- Linux system with a webcam
+- Backlight control support
 
-## Installation
+### Installation
 
-### 1. Clone the Repository
+1. **Clone the repository**
 
-git clone https://github.com/CodeByHardik/Smart-Brightness.git
-cd Smart-Brightness
+   ```bash
+   git clone https://github.com/CodeByHardik/Smart-Brightness.git
+   cd Smart-Brightness
+   ```
 
-### 2. Build the Project
+2. **Build the project**
 
-cargo build --release
+   ```bash
+   cargo build --release
+   ```
 
-### 3. Enable Non-Root Brightness Control
+3. **Set up permissions** (one-time setup)
+   ```bash
+   sudo tee /etc/udev/rules.d/99-backlight.rules <<EOF
+   ACTION=="add", SUBSYSTEM=="backlight", \
+       RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
+   ACTION=="add", SUBSYSTEM=="backlight", \
+       RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
+   EOF
+   sudo udevadm control --reload
+   sudo udevadm trigger
+   ```
+   > Make sure your user is in the `video` group: `sudo usermod -aG video $USER`
 
-sudo tee /etc/udev/rules.d/99-backlight.rules <<EOF
-ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
-ACTION=="add", SUBSYSTEM=="backlight", RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
-EOF
-sudo udevadm control --reload
-sudo udevadm trigger
+## 🛠️ Usage
 
-### 4. (Optional) Calibrate Your Camera
+### Basic Usage
 
+```bash
+# Calibrate for your environment
 ./target/release/smart_brightness --calibrate
 
-### 5. Run Smart Brightness
-
+# Run with default settings
 ./target/release/smart_brightness
 
-Press Ctrl+C to stop.
+```
+
+### Monitor Brightness
+
+```bash
+watch -n 1 cat /sys/class/backlight/*/actual_brightness
+```
+
+## ⚙️ Configuration
+
+Copy `sample-config.toml` to `config.toml` and customize:
+
+## 📊 Monitoring
+
+View real-time status:
+
+```bash
+journalctl -f -u smart-brightness  # If running as service
+# OR
+RUST_LOG=info ./target/release/smart_brightness
+```
+
+## 🛣️ Roadmap
+
+### Core Features
+
+- [x] Basic auto-brightness functionality
+- [x] Configuration via TOML
+- [x] Calibration tool
+- [ ] Systemd service templates
+
+### Advanced Features
+
+- [ ] Face detection integration
 
 ---
 
-## Testing
-
-To monitor brightness changes:
-
-watch -n 1 cat /sys/class/backlight/intel_backlight/actual_brightness
-
-Vary ambient lighting in front of your camera and observe terminal updates. Use Ctrl+C to exit.
-
----
-
-## Roadmap
-
-- [x] Initial README and basic structure
-- [x] Improved accuracy and bug fixes
-- [ ] Options for launching at boot, login, or lock screen
-- [ ] Advanced features for higher accuracy and performance
-- [ ] Lightweight face detection integration
+<div align="center">
+  Made with ❤️ by <a href="https://github.com/CodeByHardik">Hardik</a>
+</div>

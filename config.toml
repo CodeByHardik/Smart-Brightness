@@ -1,28 +1,49 @@
+# Daemon configuration
+mode = "boot"  # "boot", "interval", or "realtime"
+run_duration = 60.0  # 1 minute (for boot and interval modes)
+pause_interval = 60.0  # 1 minute (for interval mode)
+interval_boot = false  # Run in interval mode on boot if true
+
+# Camera configuration
 camera_index = 0
-camera_resolution = [
-    640,
-    400,
-]
+camera_resolution = [640, 480]
 camera_warmup_frames = 30
-ambient_smoothing_strength = 0.15000000596046448
+
+# Brightness range
 screen_brightness_min = 1
 screen_brightness_max = 937
-capture_interval_ms = 800
-brightness_step_interval_ms = 50
-brightness_step_divisor = 20
-brightness_step_max = 60
+
+# Smoothing and adjustment
+ambient_smoothing_strength = 0.15
+ambient_smoothing_strength = 0.15
+capture_interval_ms = 150 # Tuned for responsiveness
+half_precision = true # Enable pixel skipping optimization
+brightness_step_interval_ms = 20 # Faster steps
+brightness_step_divisor = 10 # Faster transition
+brightness_step_max = 100 # Allow bigger jumps
+
+# Ambient light levels
 ambient_luma_min = 0.062745101749897
 ambient_luma_max = 0.5673728585243225
 calibrated = true
-logging = "low" 
-circadian_enabled = true
-circadian_day_boost = 1.05
-circadian_night_dim = 0.95
-circadian_day_start_hour = 7
-circadian_night_start_hour = 20
+
+# Status reporting
 status_interval_seconds = 5
 status_min_brightness_change = 8
-error_throttle_seconds = 2
+status_fast_interval_seconds = 0.25
 status_fast_change_threshold = 40
 status_show_target_brightness = true
 status_only_when_changed = true
+
+# Error handling
+error_throttle_seconds = 2
+
+# Circadian rhythm
+circadian_enabled = true
+circadian_day_boost = 1.1
+circadian_night_dim = 0.9
+circadian_day_start_hour = 7
+circadian_night_start_hour = 20
+
+# Logging
+logging = "low"
