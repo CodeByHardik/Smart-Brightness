@@ -26,9 +26,9 @@ if [ "$OS" == "Arch" ]; then
 
     case $method in
         1)
-            PKG=$(ls pkg/*x86_64.pkg.tar.zst | head -n 1)
+            PKG=$(ls *x86_64.pkg.tar.zst | head -n 1)
             if [ -z "$PKG" ]; then
-                echo "Error: No package found in pkg/ directory."
+                echo "Error: No package found in project directory."
                 exit 1
             fi
             echo "Installing $PKG..."

@@ -9,10 +9,10 @@ A lightweight, real-time automatic screen brightness adjustment tool for Linux t
 ## ✨ Features
 
 - 🌈 Real-time brightness adjustment based on ambient light
-- ⚡ Lightweight and resource-efficient
+- ⚡ Lightweight and resource-efficient with half-precision option
 - 🎯 Custom calibration for optimal accuracy
 - ⚙️ Configurable via TOML configuration
-- 🌙 Built-in circadian rhythm support (optimizes brightness based on local time of day)
+- 🌙 Built-in circadian rhythm support (optimises brightness based on local time of day)
 - 📊 Detailed logging and monitoring
 - 🚀 Actively developed; expect frequent improvements
 
@@ -26,20 +26,7 @@ A lightweight, real-time automatic screen brightness adjustment tool for Linux t
 
 ### Installation
 
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/CodeByHardik/Smart-Brightness.git
-   cd Smart-Brightness
-   ```
-
-2. **Build the project**
-
-   ```bash
-   cargo build --release
-   ```
-
-3. **Set up permissions** (one-time setup)
+1. **Set up permissions** (one-time setup)
    ```bash
    sudo tee /etc/udev/rules.d/99-backlight.rules <<EOF
    ACTION=="add", SUBSYSTEM=="backlight", \
@@ -52,17 +39,30 @@ A lightweight, real-time automatic screen brightness adjustment tool for Linux t
    ```
    > Make sure your user is in the `video` group: `sudo usermod -aG video $USER`
 
+
+2. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/CodeByHardik/Smart-Brightness.git
+   cd Smart-Brightness
+   ```
+
+3. **Install the project using the script**
+
+   ```bash
+   chmod +x install.sh
+   ./install.sh
+   ```
+
+
 ## 🛠️ Usage
 
 ### Basic Usage
 
+### Configuration files are present in the following locations:
 ```bash
-# Calibrate for your environment
-./target/release/smart_brightness --calibrate
-
-# Run with default settings
-./target/release/smart_brightness
-
+/etc/smart-brightness/config.toml
+~/.config/smart-brightness/config.toml
 ```
 
 ### Monitor Brightness
@@ -71,16 +71,12 @@ A lightweight, real-time automatic screen brightness adjustment tool for Linux t
 watch -n 1 cat /sys/class/backlight/*/actual_brightness
 ```
 
-## ⚙️ Configuration
-
-Copy `sample-config.toml` to `config.toml` and customize:
-
 ## 📊 Monitoring
 
 View real-time status:
 
 ```bash
-journalctl -f -u smart-brightness  # If running as service
+journalctl -f -u smart-brightness  # If running as a service
 # OR
 RUST_LOG=info ./target/release/smart_brightness
 ```
@@ -92,7 +88,9 @@ RUST_LOG=info ./target/release/smart_brightness
 - [x] Basic auto-brightness functionality
 - [x] Configuration via TOML
 - [x] Calibration tool
-- [ ] Systemd service templates
+- [x] Systemd service daemon
+- [ ] Systemd daemon fixes and enhancements in the installation procedure
+- [ ] Widen the scope of config
 
 ### Advanced Features
 
@@ -101,5 +99,5 @@ RUST_LOG=info ./target/release/smart_brightness
 ---
 
 <div align="center">
-  Made with ❤️ by <a href="https://github.com/CodeByHardik">Hardik</a>
+  Made with ❤️ by <a href="https://github.com/CodeByHardik">CodeByHardik</a>
 </div>
