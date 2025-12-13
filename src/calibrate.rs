@@ -6,38 +6,70 @@ use crate::camera::Camera;
 use crate::config::{save_config, Config};
 
 pub fn run(mut cfg: Config) -> Result<Config, Box<dyn std::error::Error>> {
-    println!("Calibration: This will tune camera sensitivity and monitor limits.");
-    println!("1) Prepare darkest typical condition (cover lens / dim room), then press Enter.");
+    println!("╔════════════════════════════════════════════════════════════════╗");
+    println!("║          Smart Brightness - Calibration Wizard                ║");
+    println!("╚════════════════════════════════════════════════════════════════╝");
+    println!();
+    println!("This will calibrate:");
+    println!("  1. Camera sensitivity (ambient light detection)");
+    println!("  2. Monitor brightness range (min/max values)");
+    println!();
+    
+    // Camera calibration
+    println!("┌─ Step 1: Camera Calibration ─────────────────────────────────┐");
+    println!("│ Prepare DARKEST typical condition (cover lens / dim room)    │");
+    println!("└───────────────────────────────────────────────────────────────┘");
     wait_enter()?;
 
     let (w, h) = (cfg.resolution[0], cfg.resolution[1]);
     let mut cam = Camera::open(cfg.camera_device, w, h)?;
+    println!("Warming up camera...");
     cam.warmup(cfg.warmup_frames.max(30));
 
+    println!("Measuring dark ambient light...");
     let dark = cam.average_luma_over(120)?;
-    println!("Measured dark luma: {:.4}", dark);
+    println!("✓ Measured dark luma: {:.6}", dark);
+    println!();
 
-    println!("2) Prepare brightest typical condition (point to bright light / daylight), then press Enter.");
+    println!("┌─ Step 2: Bright Light Measurement ───────────────────────────┐");
+    println!("│ Prepare BRIGHTEST typical condition (bright light/daylight)  │");
+    println!("└───────────────────────────────────────────────────────────────┘");
     wait_enter()?;
 
     std::thread::sleep(Duration::from_millis(200));
+    println!("Measuring bright ambient light...");
     let bright = cam.average_luma_over(120)?;
-    println!("Measured bright luma: {:.4}", bright);
+    println!("✓ Measured bright luma: {:.6}", bright);
+    println!();
 
     let (min_l, max_l) = if dark <= bright {
         (dark, bright)
     } else {
         (bright, dark)
     };
-    if (max_l - min_l) < 0.02 {
-        eprintln!("Warning: luma range is very small. Try stronger lighting contrast and re-run.");
+    
+    let luma_range = max_l - min_l;
+    if luma_range < 0.02 {
+        println!("⚠ WARNING: Luma range is very small ({:.4})", luma_range);
+        println!("  Consider using stronger lighting contrast and re-running calibration.");
+        println!();
+    } else {
+        println!("✓ Good luma range detected: {:.4}", luma_range);
+        println!();
     }
 
+    // Monitor brightness calibration
     let (detected_min_brightness, detected_max_brightness) = calibrate_monitor_range(&cfg)?;
-    println!(
-        "Detected monitor brightness range: {} → {}",
-        detected_min_brightness, detected_max_brightness
-    );
+    
+    println!();
+    println!("╔════════════════════════════════════════════════════════════════╗");
+    println!("║                  Calibration Results                          ║");
+    println!("╠════════════════════════════════════════════════════════════════╣");
+    println!("║ Camera Luma Range:  {:.6} → {:.6}                  ║", min_l, max_l);
+    println!("║ Monitor Brightness: {} → {}                              ║", 
+             detected_min_brightness, detected_max_brightness);
+    println!("╚════════════════════════════════════════════════════════════════╝");
+    println!();
 
     cfg.camera_min_luma = Some(min_l);
     cfg.camera_max_luma = Some(max_l);
@@ -46,7 +78,8 @@ pub fn run(mut cfg: Config) -> Result<Config, Box<dyn std::error::Error>> {
     cfg.calibrated = true;
 
     save_config(&cfg)?;
-    println!("Saved calibration to config.toml.");
+    println!("✓ Calibration saved successfully!");
+    println!();
     Ok(cfg)
 }
 

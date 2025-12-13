@@ -22,42 +22,52 @@ A lightweight, real-time automatic screen brightness adjustment tool for Linux t
 
 - Rust (latest stable)
 - Linux system with a webcam
-- Backlight control support
+- Backlight control support (`/sys/class/backlight`)
 
 ### Installation
 
-1. **Set up permissions** (one-time setup)
-   ```bash
-   sudo tee /etc/udev/rules.d/99-backlight.rules <<EOF
-   ACTION=="add", SUBSYSTEM=="backlight", \
-       RUN+="/bin/chmod g+w /sys/class/backlight/%k/brightness"
-   ACTION=="add", SUBSYSTEM=="backlight", \
-       RUN+="/bin/chgrp video /sys/class/backlight/%k/brightness"
-   EOF
-   sudo udevadm control --reload
-   sudo udevadm trigger
-   ```
-   > Make sure your user is in the `video` group: `sudo usermod -aG video $USER`
-
-
-2. **Clone the repository**
-
+1. **Clone the repository**
    ```bash
    git clone https://github.com/CodeByHardik/Smart-Brightness.git
    cd Smart-Brightness
    ```
 
-3. **Install the project using the script**
-
+2. **Run the Interactive Installer**
    ```bash
    chmod +x install.sh
    ./install.sh
    ```
-
+   The installer will guide you through:
+   - Installing dependencies and permissions
+   - Selecting a daemon mode (Realtime, Boot, or Interval)
+   - Running initial calibration
+   - Setting up the systemd service
 
 ## 🛠️ Usage
 
-### Basic Usage
+### Configuration
+
+You can configure Smart Brightness in two ways:
+
+1. **Interactive TUI (Recommended)**
+   ```bash
+   smart-brightness --configure
+   ```
+   This opens a visual interface to edit settings, change modes, and adjust sensitivity.
+
+2. **Manual Config Editing**
+   Edit `~/.config/smart-brightness/config.toml` directly.
+
+### Calibration
+If you notice the brightness range is limited or ambient detection is off:
+```bash
+smart-brightness --calibrate
+```
+
+### Daemon Modes
+- **Realtime**: Continuously adjusts brightness. Best for most users.
+- **Boot**: Runs for a set duration (e.g. 5 mins) after login, then exits. Good for quick adjustment on startup without background resource usage.
+- **Interval**: Runs for a duration, sleeps, then repeats. Good balance of power saving and responsiveness.
 
 ### Configuration files are present in the following locations:
 ```bash

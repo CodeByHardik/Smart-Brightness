@@ -69,4 +69,14 @@ impl Backlight {
     pub fn actual_path(&self) -> Option<&Path> {
         self.actual_path.as_deref()
     }
+
+    /// Get the hardware minimum brightness (typically 0)
+    pub fn min_value(&self) -> u32 {
+        0
+    }
+
+    /// Get hardware brightness range
+    pub fn hardware_range(&self) -> (u32, u32) {
+        (self.min_value(), self.max_value)
+    }
 }

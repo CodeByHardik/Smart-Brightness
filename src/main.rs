@@ -7,6 +7,7 @@ mod logging;
 mod smooth_transition;
 mod smoothing;
 mod time_adjust;
+mod tui;
 
 use std::io;
 use std::sync::{
@@ -25,7 +26,20 @@ use smoothing::Ema;
 use time_adjust::TimeAdjuster;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check for help flag
+    if std::env::args().any(|a| a == "--help" || a == "-h") {
+        print_help();
+        return Ok(());
+    }
+
     let mut cfg = read_config();
+
+    // Check for configure flag
+    if std::env::args().any(|a| a == "--configure") {
+        tui::run(cfg)?;
+        return Ok(());
+    }
+
     let logger = Logger::new(cfg.logging, cfg.logging_path.as_deref());
     let calibrate_requested = std::env::args().any(|a| a == "--calibrate");
 
@@ -124,6 +138,7 @@ fn run_brightness_loop(
     
     let bl = Backlight::resolve(cfg)?;
     let hardware_max = bl.max_value;
+    let hardware_min = bl.min_value();
 
     let real_min = cfg.real_min_brightness;
     let real_max = cfg.real_max_brightness;
@@ -132,10 +147,37 @@ fn run_brightness_loop(
 
     logger.info(|| {
         format!(
-            "Lumen Active: Using brightness range {} → {}",
+            "Hardware brightness range: {} → {} (max possible)",
+            hardware_min, hardware_max
+        )
+    });
+    logger.info(|| {
+        format!(
+            "Configured brightness range: {} → {} (from calibration)",
             real_min, real_max
         )
     });
+    
+    // Warn if configured range seems limited
+    if real_min > hardware_min + 10 {
+        logger.warn(|| {
+            format!(
+                "⚠ Configured minimum ({}) is significantly above hardware minimum ({}). \
+                 Run calibration to use full range.",
+                real_min, hardware_min
+            )
+        });
+    }
+    if real_max < hardware_max - 10 {
+        logger.info(|| {
+            format!(
+                "ℹ Configured maximum ({}) is below hardware maximum ({}). \
+                 This is normal if set during calibration.",
+                real_max, hardware_max
+            )
+        });
+    }
+
     logger.info(|| {
         format!(
             "Config: smoothing={:.3}, circadian_enabled={}, min_luma_delta={:.3}, status_interval={}s, fast_interval={:.2}s",
@@ -406,4 +448,38 @@ fn update_brightness(
     let mapped = adjusted.mul_add(range_f32, real_min as f32).round() as u32;
     let final_target = mapped.clamp(real_min, real_max).min(hardware_max);
     Some(final_target)
+}
+
+fn print_help() {
+    println!("Smart Brightness - Automatic screen brightness adjustment");
+    println!();
+    println!("USAGE:");
+    println!("    smart_brightness [OPTIONS]");
+    println!();
+    println!("OPTIONS:");
+    println!("    --configure     Launch TUI configuration interface");
+    println!("    --calibrate     Run calibration wizard to detect camera sensitivity");
+    println!("                    and monitor brightness range");
+    println!("    -h, --help      Display this help message");
+    println!();
+    println!("CONFIGURATION:");
+    println!("    Config files are loaded from (in order):");
+    println!("      1. ~/.config/smart-brightness/config.toml");
+    println!("      2. /etc/smart-brightness/config.toml");
+    println!("      3. ./config.toml (current directory)");
+    println!();
+    println!("DAEMON MODES:");
+    println!("    realtime    - Continuously adjust brightness (default)");
+    println!("    boot        - Run for specified duration then exit");
+    println!("    interval    - Run for duration, pause, then repeat");
+    println!();
+    println!("EXAMPLES:");
+    println!("    # Run calibration");
+    println!("    smart_brightness --calibrate");
+    println!();
+    println!("    # Run in realtime mode (reads from config)");
+    println!("    smart_brightness");
+    println!();
+    println!("For more information, visit:");
+    println!("    https://github.com/CodeByHardik/Smart-Brightness");
 }

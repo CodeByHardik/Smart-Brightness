@@ -9,18 +9,19 @@ camera_index = 0
 camera_resolution = [640, 480]
 camera_warmup_frames = 30
 
-# Brightness range
+# Brightness range (detected during calibration)
 screen_brightness_min = 1
 screen_brightness_max = 937
 
-# Smoothing and adjustment
-ambient_smoothing_strength = 0.15
-ambient_smoothing_strength = 0.15
-capture_interval_ms = 150 # Tuned for responsiveness
-half_precision = true # Enable pixel skipping optimization
-brightness_step_interval_ms = 20 # Faster steps
-brightness_step_divisor = 10 # Faster transition
-brightness_step_max = 100 # Allow bigger jumps
+# Camera and smoothing settings
+ambient_smoothing_strength = 0.15  # EMA smoothing factor (0.0-1.0, lower = more smoothing)
+capture_interval_ms = 150  # Camera capture interval in milliseconds
+half_precision = true  # Enable pixel skipping optimization for performance
+
+# Brightness transition settings
+brightness_step_interval_ms = 20  # Interval between brightness steps
+brightness_step_divisor = 10  # Controls transition speed (higher = faster)
+brightness_step_max = 100  # Maximum brightness change per step
 
 # Ambient light levels
 ambient_luma_min = 0.062745101749897

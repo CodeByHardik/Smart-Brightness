@@ -326,6 +326,13 @@ impl Config {
         if self.pause_interval < 0.0 {
             return Err("pause_interval must be non-negative".into());
         }
+        // Validate circadian hours are in valid range
+        if self.circadian_day_start_hour > 23 {
+            return Err("circadian_day_start_hour must be between 0 and 23".into());
+        }
+        if self.circadian_night_start_hour > 23 {
+            return Err("circadian_night_start_hour must be between 0 and 23".into());
+        }
         Ok(())
     }
 }
@@ -395,7 +402,23 @@ pub fn autodetect_backlight_file(name: &str) -> Option<PathBuf> {
 }
 
 pub fn save_config(cfg: &Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Save to user config directory, creating it if needed
+    let config_path = if let Some(mut path) = dirs::config_dir() {
+        path.push("smart-brightness");
+        // Create directory if it doesn't exist
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+        path.push("config.toml");
+        path
+    } else {
+        // Fallback to current directory if config_dir is not available
+        eprintln!("Warning: Could not determine config directory, saving to current directory");
+        PathBuf::from("config.toml")
+    };
+
     let s = toml::to_string_pretty(cfg)?;
-    fs::write("config.toml", s)?;
+    fs::write(&config_path, s)?;
+    println!("Configuration saved to: {}", config_path.display());
     Ok(())
 }
